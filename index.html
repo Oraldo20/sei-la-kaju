@@ -21,7 +21,7 @@
 
         body {
             margin: 0; padding: 0;
-            font-family: Arial, sans-serif; /* Fonte ABNT */
+            font-family: Arial, sans-serif;
             background-color: var(--cor-fundo);
             overflow: hidden;
             display: flex;
@@ -64,17 +64,21 @@
         #game-stage {
             flex-grow: 1;
             position: relative;
-            cursor: crosshair;
             overflow: hidden;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-content: center;
+            padding: 10px;
         }
 
         .objeto {
             position: absolute;
             font-size: 45px;
-            transition: transform 0.2s;
             cursor: pointer;
         }
 
+        /* Overlay */
         .overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -104,25 +108,7 @@
             font-size: 18px;
             font-weight: bold;
             margin-top: 20px;
-            box-shadow: 0 4px 0 #d94e73;
             cursor: pointer;
-        }
-
-        #canvas-raspadinha { 
-            position: absolute; 
-            top: 0; left: 0; 
-            z-index: 5; 
-            touch-action: none; 
-        }
-
-        #frase-escondida { 
-            position: absolute; 
-            width: 80%; left: 10%; top: 40%; 
-            text-align: center;
-            font-size: 22px; 
-            color: var(--cor-secundaria); 
-            font-weight: bold;
-            z-index: 1;
         }
 
         #contador-beijos {
@@ -134,6 +120,15 @@
             padding: 5px 10px;
             border-radius: 15px;
             border: 2px solid var(--cor-primaria);
+            z-index: 5;
+        }
+
+        /* Estilo para as cartinhas do Jogo 2 */
+        .envelope {
+            font-size: 50px;
+            margin: 10px;
+            cursor: pointer;
+            transition: transform 0.3s;
         }
 
         #final-screen {
@@ -159,13 +154,11 @@
     </div>
 
     <div id="game-stage">
-        <div id="frase-escondida"></div>
-        <canvas id="canvas-raspadinha"></canvas>
-    </div>
+        </div>
 
     <div id="overlay" class="overlay">
         <div class="card-fofo">
-            <h2 id="msg-titulo" style="margin-top:0">Opa!</h2>
+            <h2 id="msg-titulo" style="margin-top:0"></h2>
             <p id="msg-texto"></p>
             <button class="btn" onclick="proximaFase()">Continuar ❤️</button>
         </div>
@@ -196,7 +189,7 @@
             { t: "Falta só mais um pouquinho", txt: "Para terminar, vamos tocar as estrelas agora, elas quase brilham tanto quanto vc lindinha." }
         ];
 
-        function mostrarFase() {
+        function mostrarOverlay() {
             document.getElementById('msg-titulo').innerText = roteiro[faseAtual].t;
             document.getElementById('msg-texto').innerText = roteiro[faseAtual].txt;
             overlay.style.display = 'flex';
@@ -208,7 +201,7 @@
             stage.innerHTML = '';
             
             if(faseAtual == 1) jogoChuva();
-            if(faseAtual == 2) jogoRaspadinha();
+            if(faseAtual == 2) jogoCartas(); // Jogo 2 Substituído
             if(faseAtual == 3) jogoClicker();
             if(faseAtual == 4) jogoFlores();
             if(faseAtual == 5) jogoEstrelas();
@@ -226,7 +219,7 @@
             }
         }
 
-        // --- JOGO 1: CHUVA COM OBSTÁCULOS ---
+        // --- JOGO 1: CHUVA ---
         function jogoChuva() {
             let beijos = 0;
             const meta = 10;
@@ -240,14 +233,15 @@
                 const c = document.createElement('div');
                 c.className = 'objeto';
                 c.innerHTML = isBad ? (Math.random() > 0.5 ? '💣' : '🌵') : '❤️';
-                c.style.left = Math.random() * 85 + '%';
+                c.style.left = Math.random() * 80 + '%';
                 c.style.top = '-60px';
                 c.style.transition = 'top 3s linear';
                 stage.appendChild(c);
                 
                 setTimeout(() => { if(stage.contains(c)) c.style.top = '110%'; }, 50);
 
-                const interagir = () => {
+                const interagir = (e) => {
+                    e.preventDefault();
                     if(!stage.contains(c)) return;
                     if(isBad) {
                         if(beijos > 0) beijos--;
@@ -258,95 +252,72 @@
                         somarProgresso(2);
                     }
                     indicador.innerText = `Beijos: ${beijos} / ${meta}`;
-                    setTimeout(() => { if(stage.contains(c)) c.remove(); }, 150);
+                    setTimeout(() => { if(stage.contains(c)) c.remove(); }, 200);
                     
                     if(beijos >= meta) {
                         clearInterval(loop);
-                        setTimeout(mostrarFase, 1000);
+                        setTimeout(mostrarOverlay, 1000);
                     }
                 };
 
-                c.onmousedown = (e) => { e.preventDefault(); interagir(); };
-                c.ontouchstart = (e) => { e.preventDefault(); interagir(); };
-                
-                // Remove se sair da tela
+                c.addEventListener('touchstart', interagir);
+                c.addEventListener('mousedown', interagir);
                 setTimeout(() => { if(stage.contains(c)) c.remove(); }, 3200);
             }, 800);
         }
 
-        // --- JOGO 2: RASPADINHA (FIXED) ---
-        function jogoRaspadinha() {
-            const canvas = document.getElementById('canvas-raspadinha');
-            const h = document.getElementById('frase-escondida');
-            h.innerText = "Sabe de uma coisa? Você é a pessoa mais linda desse mundo!";
+        // --- JOGO 2 NOVO: ENCONTRE O SEGREDO ---
+        function jogoCartas() {
+            stage.style.flexDirection = 'row';
+            const totalCartas = 9;
+            const indexPremiado = Math.floor(Math.random() * totalCartas);
             
-            canvas.width = stage.clientWidth;
-            canvas.height = stage.clientHeight;
-            const ctx = canvas.getContext('2d');
-            
-            ctx.fillStyle = "#ffccd5";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "#4a4e69";
-            ctx.font = "16px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText("Raspe aqui com o dedo ou mouse", canvas.width/2, canvas.height/2);
+            for(let i=0; i < totalCartas; i++) {
+                const carta = document.createElement('div');
+                carta.className = 'envelope';
+                carta.innerText = '✉️';
+                stage.appendChild(carta);
 
-            ctx.globalCompositeOperation = 'destination-out';
-            
-            let pixelsRaspados = 0;
-            let jogoGanho = false;
-
-            function getPos(e) {
-                const rect = canvas.getBoundingClientRect();
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                return {
-                    x: clientX - rect.left,
-                    y: clientY - rect.top
+                const abrir = (e) => {
+                    e.preventDefault();
+                    if(carta.innerText !== '✉️') return;
+                    
+                    if(i === indexPremiado) {
+                        carta.innerText = '📜';
+                        carta.style.transform = 'scale(1.2)';
+                        const msg = document.createElement('div');
+                        msg.style = "position:absolute; bottom:20px; width:100%; text-align:center; font-weight:bold; color:#fb6f92; padding:0 10px;";
+                        msg.innerText = "Sabe de uma coisa? Você é a pessoa mais linda desse mundo!";
+                        stage.appendChild(msg);
+                        somarProgresso(20);
+                        setTimeout(mostrarOverlay, 3000);
+                    } else {
+                        carta.innerText = '❌';
+                        carta.style.opacity = '0.5';
+                    }
                 };
+                carta.addEventListener('touchstart', abrir);
+                carta.addEventListener('mousedown', abrir);
             }
-
-            function scratch(e) {
-                if (e.buttons !== 1 && e.type === 'mousemove') return;
-                const pos = getPos(e);
-                ctx.beginPath();
-                ctx.arc(pos.x, pos.y, 35, 0, Math.PI * 2);
-                ctx.fill();
-                
-                pixelsRaspados++;
-                // Se raspar o suficiente (aprox 150 movimentos)
-                if(pixelsRaspados > 150 && !jogoGanho) {
-                    jogoGanho = true;
-                    canvas.style.transition = 'opacity 1s';
-                    canvas.style.opacity = '0';
-                    somarProgresso(20);
-                    setTimeout(() => {
-                        canvas.remove();
-                        mostrarFase();
-                    }, 1500);
-                }
-            }
-
-            canvas.addEventListener('mousemove', scratch);
-            canvas.addEventListener('touchmove', (e) => { e.preventDefault(); scratch(e); });
         }
 
         // --- JOGO 3: CLICKER ---
         function jogoClicker() {
             const btn = document.createElement('div');
             btn.innerHTML = '💖';
-            btn.style = "font-size:120px; position:absolute; left:50%; top:45%; transform:translate(-50%,-50%); cursor:pointer";
+            btn.style = "font-size:120px; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); cursor:pointer";
             stage.appendChild(btn);
-            let c = 0;
-            const click = () => {
-                c++;
+            let clicks = 0;
+            const click = (e) => {
+                e.preventDefault();
+                clicks++;
                 btn.style.transform = 'translate(-50%,-50%) scale(1.2)';
                 setTimeout(() => btn.style.transform = 'translate(-50%,-50%) scale(1)', 100);
                 somarProgresso(2);
-                if(c >= 10) setTimeout(mostrarFase, 1000);
+                if(clicks >= 10) setTimeout(mostrarOverlay, 1000);
             };
-            btn.onmousedown = click;
-            btn.ontouchstart = (e) => { e.preventDefault(); click(); };
+            btn.addEventListener('touchstart', click);
+            btn.addEventListener('mousedown', click);
         }
 
         // --- JOGO 4: FLORES ---
@@ -356,20 +327,21 @@
                 const f = document.createElement('div');
                 f.className = 'objeto';
                 f.innerHTML = '🌱';
-                f.style.left = (15 + i*17) + '%';
-                f.style.top = (30 + Math.random()*40) + '%';
+                f.style.left = (10 + i*18) + '%';
+                f.style.top = (30 + Math.random()*30) + '%';
                 stage.appendChild(f);
                 
-                const crescer = () => {
+                const crescer = (e) => {
+                    e.preventDefault();
                     if(f.innerHTML == '🌱') {
                         f.innerHTML = '🌸';
                         fCount++;
                         somarProgresso(4);
-                        if(fCount >= 5) setTimeout(mostrarFase, 1000);
+                        if(fCount >= 5) setTimeout(mostrarOverlay, 1000);
                     }
                 };
-                f.onmousedown = crescer;
-                f.ontouchstart = (e) => { e.preventDefault(); crescer(); };
+                f.addEventListener('touchstart', crescer);
+                f.addEventListener('mousedown', crescer);
             }
         }
 
@@ -380,23 +352,24 @@
                 const s = document.createElement('div');
                 s.className = 'objeto';
                 s.innerHTML = '⭐';
-                s.style.left = Math.random()*85 + '%';
-                s.style.top = Math.random()*85 + '%';
+                s.style.left = Math.random()*80 + '%';
+                s.style.top = Math.random()*80 + '%';
                 stage.appendChild(s);
                 setTimeout(() => { if(stage.contains(s)) s.remove(); }, 1200);
 
-                const pegar = () => {
+                const pegar = (e) => {
+                    e.preventDefault();
                     s.innerHTML = '✨';
                     eCount++;
                     somarProgresso(4);
                     if(eCount >= 5) { clearInterval(loop); somarProgresso(1); }
                 };
-                s.onmousedown = pegar;
-                s.ontouchstart = (e) => { e.preventDefault(); pegar(); };
+                s.addEventListener('touchstart', pegar);
+                s.addEventListener('mousedown', pegar);
             }, 900);
         }
 
-        window.onload = mostrarFase;
+        window.onload = mostrarOverlay;
     </script>
 </body>
 </html>
