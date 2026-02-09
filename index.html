@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Um mimo para você 💖</title>
+    <style>
+        :root {
+            --cor-fundo: #fffafb;
+            --cor-card: #ffffff;
+            --cor-primaria: #ffccd5;
+            --cor-secundaria: #fb6f92;
+            --cor-texto: #4a4e69;
+        }
+
+        * { 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent; 
+            user-select: none;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Comic Sans MS', 'Segoe UI', cursive, sans-serif;
+            background-color: var(--cor-fundo);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            color: var(--cor-texto);
+        }
+
+        /* Topo */
+        #topo {
+            padding: 15px;
+            text-align: center;
+            background: var(--cor-card);
+            border-bottom: 3px solid var(--cor-primaria);
+            z-index: 10;
+        }
+
+        #coracao-gigante {
+            font-size: 55px;
+            display: inline-block;
+            transition: transform 0.3s;
+        }
+
+        .barra-container {
+            width: 70%;
+            height: 18px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            margin: 10px auto;
+            position: relative;
+            border: 2px solid var(--cor-primaria);
+        }
+
+        #enchimento {
+            width: 0%; height: 100%;
+            background: var(--cor-secundaria);
+            border-radius: 20px;
+            transition: width 0.5s ease;
+        }
+
+        /* Palco do Jogo */
+        #game-stage {
+            flex-grow: 1;
+            position: relative;
+            cursor: crosshair;
+        }
+
+        .objeto {
+            position: absolute;
+            font-size: 45px;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+
+        /* Cards e Overlays */
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .card-fofo {
+            background: white;
+            padding: 30px;
+            border-radius: 30px;
+            text-align: center;
+            max-width: 85%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .btn {
+            background: var(--cor-secundaria);
+            color: white;
+            border: none;
+            padding: 15px 35px;
+            border-radius: 25px;
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+            box-shadow: 0 4px 0 #d94e73;
+            cursor: pointer;
+        }
+
+        .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #d94e73; }
+
+        /* Raspadinha Fix */
+        #canvas-raspadinha { position: absolute; top: 0; left: 0; z-index: 5; touch-action: none; }
+        #frase-escondida { 
+            position: absolute; width: 80%; left: 10%; top: 40%; text-align: center;
+            font-size: 22px; color: var(--cor-secundaria); font-weight: bold;
+        }
+
+        #final-screen {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #ff85a1;
+            color: white;
+            z-index: 500;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="topo">
+        <div id="coracao-gigante">❤️</div>
+        <div class="barra-container"><div id="enchimento"></div></div>
+    </div>
+
+    <div id="game-stage">
+        <div id="frase-escondida"></div>
+        <canvas id="canvas-raspadinha"></canvas>
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="card-fofo">
+            <h2 id="msg-titulo" style="margin-top:0">Opa!</h2>
+            <p id="msg-texto"></p>
+            <button class="btn" onclick="proximaFase()">Continuar ❤️</button>
+        </div>
+    </div>
+
+    <div id="final-screen">
+        <h1 style="font-size: 80px;">✨💝✨</h1>
+        <h2>CONSEGUIMOS!</h2>
+        <p style="font-size: 20px; max-width: 300px;">
+            Olha só como esse coração ficou cheio! <br><br>
+            Isso é só um pouquinho do carinho que eu sinto por você todos os dias. <br>
+            <b>Você é incrível e eu adoro você!</b>
+        </p>
+    </div>
+
+    <script>
+        let faseAtual = 0;
+        let progressoTotal = 0;
+        const stage = document.getElementById('game-stage');
+        const overlay = document.getElementById('overlay');
+        const enchimento = document.getElementById('enchimento');
+
+        const roteiro = [
+            { t: "Ei, psiu!", txt: "Fiz esse cantinho só pra gente. Que tal começarmos coletando alguns beijinhos?" },
+            { t: "Ai meu coração...", txt: "Você é rápida(o) demais! Olha só, tem um segredo escondido ali na frente. Pode revelar pra mim?" },
+            { t: "Sorriso bobo :)", txt: "Ler isso me deixou feliz... Agora, o coração está pedindo um pouco de atenção. Dá uns apertõezinhos nele?" },
+            { t: "Florescendo...", txt: "Quase lá! Nossa história é como uma plantinha. Vamos deixar esse jardim bem lindo?" },
+            { t: "Só mais um pouquinho!", txt: "Para terminar, vamos alcançar as estrelas? Elas brilham quase tanto quanto você." }
+        ];
+
+        function mostrarFase() {
+            document.getElementById('msg-titulo').innerText = roteiro[faseAtual].t;
+            document.getElementById('msg-texto').innerText = roteiro[faseAtual].txt;
+            overlay.style.display = 'flex';
+        }
+
+        function proximaFase() {
+            overlay.style.display = 'none';
+            faseAtual++;
+            stage.innerHTML = '';
+            
+            if(faseAtual == 1) jogoChuva();
+            if(faseAtual == 2) jogoRaspadinha();
+            if(faseAtual == 3) jogoClicker();
+            if(faseAtual == 4) jogoFlores();
+            if(faseAtual == 5) jogoEstrelas();
+        }
+
+        function somarProgresso(qtd) {
+            progressoTotal += qtd;
+            if(progressoTotal > 100) progressoTotal = 100;
+            enchimento.style.width = progressoTotal + '%';
+            document.getElementById('coracao-gigante').style.transform = 'scale(1.3)';
+            setTimeout(() => { document.getElementById('coracao-gigante').style.transform = 'scale(1)'; }, 200);
+            
+            if(progressoTotal >= 100) {
+                setTimeout(() => { document.getElementById('final-screen').style.display = 'flex'; }, 1000);
+            }
+        }
+
+        // --- JOGOS (Com suporte a Mouse e Touch) ---
+
+        function jogoChuva() {
+            let count = 0;
+            let loop = setInterval(() => {
+                const c = document.createElement('div');
+                c.className = 'objeto';
+                c.innerHTML = '❤️';
+                c.style.left = Math.random() * 80 + '%';
+                c.style.top = '-50px';
+                c.style.transition = 'top 3s linear';
+                stage.appendChild(c);
+                setTimeout(() => c.style.top = '100%', 50);
+
+                const pegar = () => {
+                    if(!stage.contains(c)) return;
+                    c.innerHTML = '✨';
+                    setTimeout(() => c.remove(), 100);
+                    count++;
+                    somarProgresso(2);
+                    if(count >= 10) { clearInterval(loop); setTimeout(mostrarFase, 1200); }
+                };
+                c.onmousedown = (e) => { e.preventDefault(); pegar(); };
+                c.ontouchstart = (e) => { e.preventDefault(); pegar(); };
+            }, 800);
+        }
+
+        function jogoRaspadinha() {
+            const canvas = document.getElementById('canvas-raspadinha');
+            const h = document.getElementById('frase-escondida');
+            h.innerText = "Sabe de uma coisa? Você é a pessoa mais linda desse mundo!";
+            canvas.width = window.innerWidth;
+            canvas.height = stage.offsetHeight;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = "#ffccd5";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 18px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("Passe o mouse ou o dedo aqui!", canvas.width/2, canvas.height/2);
+
+            ctx.globalCompositeOperation = 'destination-out';
+            let desenhando = false;
+
+            const raspar = (e) => {
+                if(!desenhando && e.type.includes('mouse')) return;
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+                const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+                ctx.beginPath();
+                ctx.arc(x, y, 35, 0, Math.PI * 2);
+                ctx.fill();
+                
+                if(Math.random() > 0.9) somarProgresso(0.5);
+            };
+
+            canvas.onmousedown = () => desenhando = true;
+            canvas.onmouseup = () => {
+                desenhando = false;
+                if(progressoTotal >= 40) { // Se já raspou um tanto bom
+                    canvas.style.opacity = '0';
+                    setTimeout(mostrarFase, 2000);
+                }
+            };
+            canvas.onmousemove = raspar;
+            canvas.ontouchmove = (e) => { e.preventDefault(); raspar(e); };
+            canvas.ontouchend = canvas.onmouseup;
+        }
+
+        function jogoClicker() {
+            const btn = document.createElement('div');
+            btn.innerHTML = '💖';
+            btn.style = "font-size:120px; position:absolute; left:50%; top:40%; transform:translate(-50%,-50%); cursor:pointer";
+            stage.appendChild(btn);
+            let c = 0;
+            const click = () => {
+                c++;
+                btn.style.transform = 'translate(-50%,-50%) scale(1.2)';
+                setTimeout(() => btn.style.transform = 'translate(-50%,-50%) scale(1)', 100);
+                somarProgresso(2);
+                if(c >= 10) setTimeout(mostrarFase, 1000);
+            };
+            btn.onmousedown = click;
+            btn.ontouchstart = (e) => { e.preventDefault(); click(); };
+        }
+
+        function jogoFlores() {
+            let fCount = 0;
+            for(let i=0; i<5; i++) {
+                const f = document.createElement('div');
+                f.className = 'objeto';
+                f.innerHTML = '🌱';
+                f.style.left = (15 + i*18) + '%';
+                f.style.top = (30 + Math.random()*30) + '%';
+                stage.appendChild(f);
+                
+                const crescer = () => {
+                    if(f.innerHTML == '🌱') {
+                        f.innerHTML = '🌸';
+                        fCount++;
+                        somarProgresso(4);
+                        if(fCount >= 5) setTimeout(mostrarFase, 1000);
+                    }
+                };
+                f.onmousedown = crescer;
+                f.ontouchstart = (e) => { e.preventDefault(); crescer(); };
+            }
+        }
+
+        function jogoEstrelas() {
+            let eCount = 0;
+            let loop = setInterval(() => {
+                const s = document.createElement('div');
+                s.className = 'objeto';
+                s.innerHTML = '⭐';
+                s.style.left = Math.random()*85 + '%';
+                s.style.top = Math.random()*85 + '%';
+                stage.appendChild(s);
+                setTimeout(() => { if(stage.contains(s)) s.remove(); }, 1200);
+
+                const pegar = () => {
+                    s.innerHTML = '✨';
+                    eCount++;
+                    somarProgresso(4);
+                    if(eCount >= 5) { clearInterval(loop); somarProgresso(1); }
+                };
+                s.onmousedown = pegar;
+                s.ontouchstart = (e) => { e.preventDefault(); pegar(); };
+            }, 900);
+        }
+
+        window.onload = mostrarFase;
+    </script>
+</body>
+</html>
