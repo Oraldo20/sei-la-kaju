@@ -78,7 +78,6 @@
             cursor: pointer;
         }
 
-        /* Overlay */
         .overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -109,6 +108,13 @@
             font-weight: bold;
             margin-top: 20px;
             cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.7;
         }
 
         #contador-beijos {
@@ -123,7 +129,6 @@
             z-index: 5;
         }
 
-        /* Estilo para as cartinhas do Jogo 2 */
         .envelope {
             font-size: 50px;
             margin: 10px;
@@ -153,14 +158,13 @@
         <div class="barra-container"><div id="enchimento"></div></div>
     </div>
 
-    <div id="game-stage">
-        </div>
+    <div id="game-stage"></div>
 
     <div id="overlay" class="overlay">
         <div class="card-fofo">
             <h2 id="msg-titulo" style="margin-top:0"></h2>
             <p id="msg-texto"></p>
-            <button class="btn" onclick="proximaFase()">Continuar ❤️</button>
+            <button id="btn-continuar" class="btn" onclick="proximaFase()">Continuar ❤️</button>
         </div>
     </div>
 
@@ -180,6 +184,7 @@
         const stage = document.getElementById('game-stage');
         const overlay = document.getElementById('overlay');
         const enchimento = document.getElementById('enchimento');
+        const btnContinuar = document.getElementById('btn-continuar');
 
         const roteiro = [
             { t: "Ei, psiu!", txt: "Fiz isso aqui para te deixar mais felizinha kkkkkk, Colete uns beijinhos primeiro" },
@@ -192,16 +197,24 @@
         function mostrarOverlay() {
             document.getElementById('msg-titulo').innerText = roteiro[faseAtual].t;
             document.getElementById('msg-texto').innerText = roteiro[faseAtual].txt;
+            
+            // Bloqueia o botão por 1.5s para evitar clique acidental do jogo anterior
+            btnContinuar.disabled = true;
             overlay.style.display = 'flex';
+            
+            setTimeout(() => {
+                btnContinuar.disabled = false;
+            }, 1500);
         }
 
         function proximaFase() {
+            if(btnContinuar.disabled) return;
             overlay.style.display = 'none';
             faseAtual++;
             stage.innerHTML = '';
             
             if(faseAtual == 1) jogoChuva();
-            if(faseAtual == 2) jogoCartas(); // Jogo 2 Substituído
+            if(faseAtual == 2) jogoCartas();
             if(faseAtual == 3) jogoClicker();
             if(faseAtual == 4) jogoFlores();
             if(faseAtual == 5) jogoEstrelas();
@@ -259,14 +272,12 @@
                         setTimeout(mostrarOverlay, 1000);
                     }
                 };
-
                 c.addEventListener('touchstart', interagir);
                 c.addEventListener('mousedown', interagir);
-                setTimeout(() => { if(stage.contains(c)) c.remove(); }, 3200);
             }, 800);
         }
 
-        // --- JOGO 2 NOVO: ENCONTRE O SEGREDO ---
+        // --- JOGO 2: CARTAS ---
         function jogoCartas() {
             stage.style.flexDirection = 'row';
             const totalCartas = 9;
@@ -284,13 +295,12 @@
                     
                     if(i === indexPremiado) {
                         carta.innerText = '📜';
-                        carta.style.transform = 'scale(1.2)';
                         const msg = document.createElement('div');
                         msg.style = "position:absolute; bottom:20px; width:100%; text-align:center; font-weight:bold; color:#fb6f92; padding:0 10px;";
                         msg.innerText = "Voce é muito legal e a pessoa mais linda de todas, sou muito grato por poder dividir meu dia com voce mesmo que seja a distancia!";
                         stage.appendChild(msg);
                         somarProgresso(20);
-                        setTimeout(mostrarOverlay, 3000);
+                        setTimeout(mostrarOverlay, 4000);
                     } else {
                         carta.innerText = '❌';
                         carta.style.opacity = '0.5';
@@ -301,20 +311,26 @@
             }
         }
 
-        // --- JOGO 3: CLICKER ---
+        // --- JOGO 3: CLICKER (FIXED) ---
         function jogoClicker() {
             const btn = document.createElement('div');
             btn.innerHTML = '💖';
-            btn.style = "font-size:120px; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); cursor:pointer";
+            btn.style = "font-size:120px; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); cursor:pointer; z-index:10";
             stage.appendChild(btn);
             let clicks = 0;
             const click = (e) => {
                 e.preventDefault();
+                if(clicks >= 10) return;
+                
                 clicks++;
                 btn.style.transform = 'translate(-50%,-50%) scale(1.2)';
                 setTimeout(() => btn.style.transform = 'translate(-50%,-50%) scale(1)', 100);
                 somarProgresso(2);
-                if(clicks >= 10) setTimeout(mostrarOverlay, 1000);
+                
+                if(clicks >= 10) {
+                    btn.style.display = 'none'; // Some para não clicar no que vem atrás
+                    setTimeout(mostrarOverlay, 800);
+                }
             };
             btn.addEventListener('touchstart', click);
             btn.addEventListener('mousedown', click);
@@ -373,4 +389,3 @@
     </script>
 </body>
 </html>
-
