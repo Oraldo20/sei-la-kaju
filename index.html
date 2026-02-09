@@ -21,7 +21,7 @@
 
         body {
             margin: 0; padding: 0;
-            font-family: 'Comic Sans MS', 'Segoe UI', cursive, sans-serif;
+            font-family: Arial, sans-serif; /* Fonte ABNT */
             background-color: var(--cor-fundo);
             overflow: hidden;
             display: flex;
@@ -30,7 +30,6 @@
             color: var(--cor-texto);
         }
 
-        /* Topo */
         #topo {
             padding: 15px;
             text-align: center;
@@ -62,11 +61,11 @@
             transition: width 0.5s ease;
         }
 
-        /* Palco do Jogo */
         #game-stage {
             flex-grow: 1;
             position: relative;
             cursor: crosshair;
+            overflow: hidden;
         }
 
         .objeto {
@@ -76,7 +75,6 @@
             cursor: pointer;
         }
 
-        /* Cards e Overlays */
         .overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -110,13 +108,32 @@
             cursor: pointer;
         }
 
-        .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #d94e73; }
+        #canvas-raspadinha { 
+            position: absolute; 
+            top: 0; left: 0; 
+            z-index: 5; 
+            touch-action: none; 
+        }
 
-        /* Raspadinha Fix */
-        #canvas-raspadinha { position: absolute; top: 0; left: 0; z-index: 5; touch-action: none; }
         #frase-escondida { 
-            position: absolute; width: 80%; left: 10%; top: 40%; text-align: center;
-            font-size: 22px; color: var(--cor-secundaria); font-weight: bold;
+            position: absolute; 
+            width: 80%; left: 10%; top: 40%; 
+            text-align: center;
+            font-size: 22px; 
+            color: var(--cor-secundaria); 
+            font-weight: bold;
+            z-index: 1;
+        }
+
+        #contador-beijos {
+            position: absolute;
+            top: 10px; right: 10px;
+            font-weight: bold;
+            color: var(--cor-secundaria);
+            background: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            border: 2px solid var(--cor-primaria);
         }
 
         #final-screen {
@@ -209,80 +226,116 @@
             }
         }
 
-        // --- JOGOS (Com suporte a Mouse e Touch) ---
-
+        // --- JOGO 1: CHUVA COM OBSTÁCULOS ---
         function jogoChuva() {
-            let count = 0;
+            let beijos = 0;
+            const meta = 10;
+            const indicador = document.createElement('div');
+            indicador.id = 'contador-beijos';
+            indicador.innerText = `Beijos: 0 / ${meta}`;
+            stage.appendChild(indicador);
+
             let loop = setInterval(() => {
+                const isBad = Math.random() > 0.7;
                 const c = document.createElement('div');
                 c.className = 'objeto';
-                c.innerHTML = '❤️';
-                c.style.left = Math.random() * 80 + '%';
-                c.style.top = '-50px';
+                c.innerHTML = isBad ? (Math.random() > 0.5 ? '💣' : '🌵') : '❤️';
+                c.style.left = Math.random() * 85 + '%';
+                c.style.top = '-60px';
                 c.style.transition = 'top 3s linear';
                 stage.appendChild(c);
-                setTimeout(() => c.style.top = '100%', 50);
+                
+                setTimeout(() => { if(stage.contains(c)) c.style.top = '110%'; }, 50);
 
-                const pegar = () => {
+                const interagir = () => {
                     if(!stage.contains(c)) return;
-                    c.innerHTML = '✨';
-                    setTimeout(() => c.remove(), 100);
-                    count++;
-                    somarProgresso(2);
-                    if(count >= 10) { clearInterval(loop); setTimeout(mostrarFase, 1200); }
+                    if(isBad) {
+                        if(beijos > 0) beijos--;
+                        c.innerHTML = '💥';
+                    } else {
+                        beijos++;
+                        c.innerHTML = '✨';
+                        somarProgresso(2);
+                    }
+                    indicador.innerText = `Beijos: ${beijos} / ${meta}`;
+                    setTimeout(() => { if(stage.contains(c)) c.remove(); }, 150);
+                    
+                    if(beijos >= meta) {
+                        clearInterval(loop);
+                        setTimeout(mostrarFase, 1000);
+                    }
                 };
-                c.onmousedown = (e) => { e.preventDefault(); pegar(); };
-                c.ontouchstart = (e) => { e.preventDefault(); pegar(); };
+
+                c.onmousedown = (e) => { e.preventDefault(); interagir(); };
+                c.ontouchstart = (e) => { e.preventDefault(); interagir(); };
+                
+                // Remove se sair da tela
+                setTimeout(() => { if(stage.contains(c)) c.remove(); }, 3200);
             }, 800);
         }
 
+        // --- JOGO 2: RASPADINHA (FIXED) ---
         function jogoRaspadinha() {
             const canvas = document.getElementById('canvas-raspadinha');
             const h = document.getElementById('frase-escondida');
             h.innerText = "Sabe de uma coisa? Você é a pessoa mais linda desse mundo!";
-            canvas.width = window.innerWidth;
-            canvas.height = stage.offsetHeight;
+            
+            canvas.width = stage.clientWidth;
+            canvas.height = stage.clientHeight;
             const ctx = canvas.getContext('2d');
             
             ctx.fillStyle = "#ffccd5";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "#fff";
-            ctx.font = "bold 18px sans-serif";
+            ctx.fillStyle = "#4a4e69";
+            ctx.font = "16px Arial";
             ctx.textAlign = "center";
-            ctx.fillText("Passe o mouse ou o dedo aqui!", canvas.width/2, canvas.height/2);
+            ctx.fillText("Raspe aqui com o dedo ou mouse", canvas.width/2, canvas.height/2);
 
             ctx.globalCompositeOperation = 'destination-out';
-            let desenhando = false;
+            
+            let pixelsRaspados = 0;
+            let jogoGanho = false;
 
-            const raspar = (e) => {
-                if(!desenhando && e.type.includes('mouse')) return;
+            function getPos(e) {
                 const rect = canvas.getBoundingClientRect();
-                const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-                const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            }
+
+            function scratch(e) {
+                if (e.buttons !== 1 && e.type === 'mousemove') return;
+                const pos = getPos(e);
                 ctx.beginPath();
-                ctx.arc(x, y, 35, 0, Math.PI * 2);
+                ctx.arc(pos.x, pos.y, 35, 0, Math.PI * 2);
                 ctx.fill();
                 
-                if(Math.random() > 0.9) somarProgresso(0.5);
-            };
-
-            canvas.onmousedown = () => desenhando = true;
-            canvas.onmouseup = () => {
-                desenhando = false;
-                if(progressoTotal >= 40) { // Se já raspou um tanto bom
+                pixelsRaspados++;
+                // Se raspar o suficiente (aprox 150 movimentos)
+                if(pixelsRaspados > 150 && !jogoGanho) {
+                    jogoGanho = true;
+                    canvas.style.transition = 'opacity 1s';
                     canvas.style.opacity = '0';
-                    setTimeout(mostrarFase, 2000);
+                    somarProgresso(20);
+                    setTimeout(() => {
+                        canvas.remove();
+                        mostrarFase();
+                    }, 1500);
                 }
-            };
-            canvas.onmousemove = raspar;
-            canvas.ontouchmove = (e) => { e.preventDefault(); raspar(e); };
-            canvas.ontouchend = canvas.onmouseup;
+            }
+
+            canvas.addEventListener('mousemove', scratch);
+            canvas.addEventListener('touchmove', (e) => { e.preventDefault(); scratch(e); });
         }
 
+        // --- JOGO 3: CLICKER ---
         function jogoClicker() {
             const btn = document.createElement('div');
             btn.innerHTML = '💖';
-            btn.style = "font-size:120px; position:absolute; left:50%; top:40%; transform:translate(-50%,-50%); cursor:pointer";
+            btn.style = "font-size:120px; position:absolute; left:50%; top:45%; transform:translate(-50%,-50%); cursor:pointer";
             stage.appendChild(btn);
             let c = 0;
             const click = () => {
@@ -296,14 +349,15 @@
             btn.ontouchstart = (e) => { e.preventDefault(); click(); };
         }
 
+        // --- JOGO 4: FLORES ---
         function jogoFlores() {
             let fCount = 0;
             for(let i=0; i<5; i++) {
                 const f = document.createElement('div');
                 f.className = 'objeto';
                 f.innerHTML = '🌱';
-                f.style.left = (15 + i*18) + '%';
-                f.style.top = (30 + Math.random()*30) + '%';
+                f.style.left = (15 + i*17) + '%';
+                f.style.top = (30 + Math.random()*40) + '%';
                 stage.appendChild(f);
                 
                 const crescer = () => {
@@ -319,6 +373,7 @@
             }
         }
 
+        // --- JOGO 5: ESTRELAS ---
         function jogoEstrelas() {
             let eCount = 0;
             let loop = setInterval(() => {
@@ -344,5 +399,4 @@
         window.onload = mostrarFase;
     </script>
 </body>
-
 </html>
